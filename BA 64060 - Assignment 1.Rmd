@@ -1,0 +1,83 @@
+---
+title: "BA 64060 - Assignment 1"
+author: "Ana Sarmiento"
+date: "2026-09-10"
+output: html_document
+---
+
+### Step 1 & 2: Download a dataset and import the Data
+
+I imported the Customer Personality Analysis dataset from Kaggle.
+
+```{r}
+# Source: Kaggle "Customer Personality Analysis" dataset by imakash3011
+# https://www.kaggle.com/datasets/imakash3011/customer-personality-analysis
+
+marketing <- read.csv("marketing_campaign.csv", sep = "\t")
+str(marketing)
+head(marketing)
+```
+
+The dataset contains 29 variables, with a mix of quantitative variables (like Income and MntWines) and categorical variables (like Education and Marital_Status).
+
+### Step 3: Descriptive Statistics
+
+```{r}
+# Income: Customer's yearly household income
+summary(marketing$Income)
+# NumStorePurchases: Number of purchases made directly in stores
+summary(marketing$NumStorePurchases)
+# NumWebPurchases: Number of purchases made through the company’s website
+summary(marketing$NumWebPurchases)
+```
+
+*I chose Income and NumStorePurchases because these are variables that can be useful specially for FMCG companies where they need to allocate resources to call the attention of the consumers (this happens more commonly in Ecuador, where I'm from). From a data analyst perspective, what stands out is the outlier in the yearly household income ($666,666), because is a data point to take into account in the data cleaning process before doing any further analysis. From a business perspective, their customer's yearly household income, can be helpful to develop a product that their consumers can afford, and even how to market it. On the other hand, for the number of purchases made directly in stores and number of purchases made through the company’s website, for example, FMCG companies could use this information to decide whether they should allocate more of their resources on digital points of sale or in stores.*
+
+```{r}
+# Education: Customer's education level
+table(marketing$Education)
+# Marital_Status: Customer's marital status
+table(marketing$Marital_Status)
+```
+
+*I chose these categorical variables because they can be a starting point to segment costumers and make sure that any advertisement is targeted correctly. This helps businesses understand the stage of life their consumer is in and adapt their strategy based on that. Now, what's interesting from the data analytics perspective, are the outliers categories like YOLO, Absurd, and Alone. This can be a learning experience for a next set of data to set a dropdown option to make the data cleaner from the moment is being collected. For example, for Education, this type of information would be useful for a higher-education business that has a variety of services, they can identify the majority of their consumers have graduated or will graduate, and target this segment with graduate programs or professional development courses. For Marital_Status, this information could help a business portray more married couples in their advertisements, considering this is the marital status for most of their consumers, and help them feel identified.*
+
+### Step 4: Transform one variable (at least 1)
+
+```{r}
+# I'm transforming Year_Birth into age, because it's easier to directly use the age as demographic variable to segment a consumer for a marketing strategy.
+marketing$Age <- 2026 - marketing$Year_Birth
+summary(marketing$Age)
+```
+
+*I think age is such a powerful tool for marketing and advertising, especially for components of the industry like copy writing. In this example, the statistics are showing us that the average consumer from this database are in their late 50's, which guides the business as to what language to use for their advertisements to be more influential on the purchasing process. And, to keep data analysis more effective, there are tools on different softwares that could be used to avoid outliers (133) that could have happened due to a typo.*
+
+### Step 5: Plot one quantitative variable (at least 1) and one scatter plot
+
+```{r}
+
+options(scipen = 999)
+
+# Plot 1: Histogram of Age (distribution of a quantitative variable)
+hist(marketing$Age, 
+     main = "Distribution of Customer Age",
+     xlab = "Age (years)",
+     ylab = "Number of Customers",
+     col = "steelblue",
+     breaks = 20)
+```
+
+*This histogram allows us to confirm a pattern that was previously identified with descriptive statistics. We can see that the majority of the consumers are between 50 and 70 years old. This is a great starting point to start understanding their needs better by building a consumer profile that combines demographic variables, like this, with psychographic variables that present a clear idea of who you're selling to.*
+
+```{r}
+
+# Plot 2: Scatterplot of Age vs. Income (relationship between two quantitative variables)
+plot(marketing$Age, marketing$Income,
+     main = "Age vs. Income",
+     xlab = "Age (years)",
+     ylab = "Annual Income ($)",
+     col = "darkred",
+     pch = 16)
+```
+
+*This scatterplot allows us to identify the average purchasing power of our consumers. In this case, we can determine that almost all of the consumers have a similar annual income despite their age. This information can lead to business decisions like developing a low-cost product that will satisfy a need that these consumers share. And, going back to our age variable created before, this is a great visual way to understand that a bigger income, in this set of consumers, is not significant but most certainly an outlier. As well as confirming the age outliers mentioned before (133)*

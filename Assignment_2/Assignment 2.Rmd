@@ -1,0 +1,168 @@
+---
+title: "Assignment 2"
+author: "Ana Sarmiento"
+date: "2026-09-30"
+output: html_document
+---
+## Step 1: Download UniversalBank.csv
+## Step 2: Install and load packages
+```{r}
+# install.packages(c("caret", "gmodels", "class"))
+library(caret)
+library(class)
+library(gmodels)
+```
+
+## Step 3: Load and clean the data
+```{r}
+# Create the data frame "bank" to load the dataset and review the information
+bank <- read.csv("UniversalBank.csv")
+print("string")
+str(bank)
+print("names")
+names(bank)
+print("head")
+head(bank)
+```
+
+```{r}
+# We exclude ID and ZIP.Code following the exercise clarification
+bank <- bank[, !(names(bank) %in% c("ID", "ZIP.Code"))]
+# Since we are going to classify the customer for loan acceptance, we need to identify the Personal.Loan data as factors to put them into categories of 0 (not accepted) and 1 (accepted)
+bank$Personal.Loan <- factor(bank$Personal.Loan)
+# Then we transform categorical predictors with more than two categories into dummy variables
+bank$Education <- factor(bank$Education)
+dummy_model   <- dummyVars(~ Education, data = bank)
+edu_dummies   <- as.data.frame(predict(dummy_model, bank))
+bank <- cbind(bank[, names(bank) != "Education"], edu_dummies)
+# Verify
+print("names start")
+names(bank)
+print("name ends")
+head(edu_dummies)
+# We save the names of every column except Personal.Loan as the predictors list, so the model can look at these clues but never at the answer
+predictor_cols <- setdiff(names(bank), "Personal.Loan")
+print("predictor_cols_start")
+predictor_cols
+print("predictor_cols_ends")
+```
+## Step 4: Partition the data into training (60%) and validation (40%) sets
+```{r}
+# We check the model on data it has not seen
+set.seed(123)
+Index_Train <- createDataPartition(bank$Personal.Loan, p = 0.6, list = FALSE)
+Train <- bank[Index_Train, ]
+Valid <- bank[-Index_Train, ]
+# Validate - 5000 rows in base set * 60% = should be 3000
+nrow(Train); nrow(Valid)
+```
+
+```{r}
+# We normalize the data with the training predictors to put everything at the same scale
+norm_model <- preProcess(Train[, predictor_cols], method = "range")
+# Now, we apply the normalizer to both training and validation data
+Train_norm <- predict(norm_model, Train[, predictor_cols])
+Valid_norm <- predict(norm_model, Valid[, predictor_cols])
+# Then, we input the answers
+Train_labels <- Train$Personal.Loan
+Valid_labels <- Valid$Personal.Loan
+# Finally, we double check that the normalizer worked
+print("Train_norm_start")
+summary(Train_norm)
+print("Train_norm_ends")
+print("Valid_norm_start")
+summary(Valid_norm)
+print("Valid_norm_ends")
+```
+
+## Question 1: How would this customer be classified?
+```{r}
+# We create this new customer as one-row table, which follows the same format as before, and run it through the same normalizer.
+new_customer <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2,
+                           Mortgage = 0, Securities.Account = 0, CD.Account = 0,
+                           Online = 1, CreditCard = 1,
+                           Education.1 = 0, Education.2 = 1, Education.3 = 0)
+new_customer <- new_customer[, predictor_cols]       
+new_customer_norm <- predict(norm_model, new_customer)
+new_customer_norm
+```
+
+```{r}
+# We classify the new customer with k = 1
+new_cust_pred <- knn(Train_norm, new_customer_norm, cl= Train_labels, k = 1)
+new_cust_pred
+```
+
+The customer is classified as 0. Since the success class is 1 (loan acceptance), the model predicts this customer would not accept the loan.
+
+## Question 2: What is a choice of k that balances between overfitting and ignoring the predictor information?
+```{r}
+# From the slides, k values tipically fall from 1 - 20 and we should focus on odd values to avoid ties.
+k_values <- seq(1, 19, by = 2) # start at 1 up to 19 odd numbers
+accuracy_results <- data.frame(k = k_values, accuracy = NA)
+print(length(k_values))
+# Print function showed 10 values, so we use 10 for iteration
+for (i in 1:10) {
+  pred <- knn(Train_norm, Valid_norm, cl = Train_labels, k = k_values[i])
+  accuracy_results$accuracy[i] <- mean(pred == Valid_labels)
+}
+# Verify
+accuracy_results
+```
+The choice of k that balances between overfitting and ignoring the predictor information would be k = 3. This is because accuracy when k = 3 gives the second highest level of accuracy without overfitting to just 1 neighbour.
+
+## Question 3: Show the confusion matrix for the validation data that results from using the best k.
+```{r}
+# We assign 3 to best_k and run knn () with that new value. Then we use the function CrossTable () to display the confusion matrix
+best_k <- 3
+valid_pred <- knn(Train_norm, Valid_norm, cl = Train_labels, k = best_k)
+CrossTable(x = Valid_labels, y = valid_pred, prop.chisq = FALSE)
+```
+
+## Question 4: Classify the new customer using the best k.
+```{r}
+# We run a new prediction for the same customer from question 1, but this time we use k = 3
+new_cust_pred3 <- knn(Train_norm, new_customer_norm, cl = Train_labels, k = best_k)
+new_cust_pred3
+```
+
+Even when the value of k is adjusted to 3, the model still classifies the customer as 0, meaning it still predicts the customer would reject the loan. This information elevates how much we can trust this prediction because it shows that more than one neighbour agrees.
+
+## Question 5: Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%). Comment on the differences and their reason
+```{r}
+# Now, we repartition the data to training (50%), validation (30%), and test (20%) sets
+set.seed(123)
+idx_train_q5 <- createDataPartition(bank$Personal.Loan, p = 0.5, list = FALSE)
+TrainQ5 <- bank[idx_train_q5, ]
+TestQ5  <- bank[-idx_train_q5, ]
+idx_valid_q5 <- createDataPartition(TestQ5$Personal.Loan, p = 0.6, list = FALSE)
+ValidQ5 <- TestQ5[idx_valid_q5, ]
+TestQ5  <- TestQ5[-idx_valid_q5, ]
+```
+
+```{r}
+# Like we did before, we normalize it to put everything in the same scale
+norm_model_q5 <- preProcess(TrainQ5[, predictor_cols], method = "range")
+TrainQ5_norm <- predict(norm_model_q5, TrainQ5[, predictor_cols])
+ValidQ5_norm <- predict(norm_model_q5, ValidQ5[, predictor_cols])
+TestQ5_norm  <- predict(norm_model_q5, TestQ5[, predictor_cols])
+
+TrainQ5_labels <- TrainQ5$Personal.Loan
+ValidQ5_labels <- ValidQ5$Personal.Loan
+TestQ5_labels  <- TestQ5$Personal.Loan
+```
+
+```{r}
+# Then, we apply the k-NN method with the k chosen above (3)
+pred_train_q5 <- knn(TrainQ5_norm, TrainQ5_norm, cl = TrainQ5_labels, k = best_k)
+pred_valid_q5 <- knn(TrainQ5_norm, ValidQ5_norm, cl = TrainQ5_labels, k = best_k)
+pred_test_q5  <- knn(TrainQ5_norm, TestQ5_norm,  cl = TrainQ5_labels, k = best_k)
+```
+
+```{r}
+#Finally, compare the confusion matrix of the test set with that of the training and validation sets.
+CrossTable(x = TrainQ5_labels, y = pred_train_q5, prop.chisq = FALSE)
+CrossTable(x = ValidQ5_labels, y = pred_valid_q5, prop.chisq = FALSE)
+CrossTable(x = TestQ5_labels,  y = pred_test_q5,  prop.chisq = FALSE)
+```
+After repartitioning the data into training (50%), validation (30%), and test (20%) sets, the confusion matrices show the training set with the highest accuracy, followed by the validation set, and the test set. The training set looks best because k-NN was run on the same records it was trained on, so each record counts as its own nearest neighbor, and that makes the result overly optimistic. The validation and test sets are both unseen data, so their accuracies are slightly lower and more realistic. The test set gives the most honest estimate of real-world performance because it was not used to choose k.

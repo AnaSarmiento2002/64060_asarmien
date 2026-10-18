@@ -1,0 +1,119 @@
+---
+title: "Assignment 3"
+author: "Ana Sarmiento"
+date: "2026-10-15"
+output: html_document
+---
+
+### Step 1: Load and clean the data
+```{r}
+# Create the data frame "bank" to load the dataset and review the information
+bank <- read.csv("UniversalBank.csv")
+str(bank) 
+```
+The information displays allows us to identify that the variables we will be working with (Personal.Loan, Online, CreditCard) are integers within the table. This means our next step should be to transform the integers into factors so that when we apply naiveBayes () later on it willgive the right answer.
+
+### Step 2: Partition the data into training (60%) and validation (40%) sets
+```{r}
+# Start by loading the tools from the caret package and transforming integers into factors (as mentioned before)
+library(caret)
+bank$Personal.Loan <- as.factor(bank$Personal.Loan)
+bank$Online <- as.factor(bank$Online)
+bank$CreditCard <- as.factor(bank$CreditCard)
+# Check the model on data it has not seen
+set.seed(123)
+index <- createDataPartition(bank$Personal.Loan, p = 0.6 , list = FALSE)
+train <- bank[index, ]
+valid <- bank[-index, ]
+# Validate - 5000 rows in base set * 60% = should be 3000
+nrow(train); nrow(valid)
+```
+### A. Create a pivot table for the training data with Online as a column variable, CC as a row variable, and Loan as a secondary row variable. The values inside the table should convey the count. 
+```{r}
+# Use "table' function to create the pivot table
+table(CC = train$CreditCard, Loan = train$Personal.Loan, Online = train$Online) # Use CC to label each variable in the tables
+```
+### B. Looking at the pivot table, what is the probability that this customer will accept the loan offer?
+```{r}
+# P(Loan = 1 | CC = 1, Online = 1)
+probability <- 51 / (51+467)
+probability
+```
+
+### C.Create two separate pivot tables for the training data. One will have Loan (rows) as a function of Online (columns) and the other will have Loan (rows) as a function of CC
+```{r}
+# 
+print("Table 1")
+table(Loan = train$Personal.Loan, Online = train$Online)
+print("Table 2")
+table(Loan = train$Personal.Loan, CC = train$CreditCard)
+```
+### D. Compute the following quantities 
+```{r}
+# i. P(CC = 1 | Loan = 1) (the proportion of credit card holders among the loan acceptors)
+P_CC_Loan <- 84 / (84+204)
+P_CC_Loan
+# ii. P(Online = 1 | Loan = 1) (the proportion of people who use online banking among the loan acceptors)
+P_Online_Loan <- 176 / (176+112)
+P_Online_Loan
+# iii. P(Loan = 1) (the proportion of loan acceptors)
+P_Loan <- 288 / 3000
+P_Loan
+# iv. P(CC = 1 | Loan = 0) (the proportion of credit card holders among the people who declined the loan)
+P_CC_NoLoan <- 777 / (777+1935)
+P_CC_NoLoan
+# v. P(Online = 1 | Loan = 0) (the proportion of people who use online banking among the people who declined the loan)
+P_Online_NoLoan <- 1611 / (1611+1101)
+P_Online_NoLoan
+# vi. P(Loan = 0)
+P_NoLoan <- 2712 / 3000
+P_NoLoan
+```
+### E. Use the quantities computed above to compute the naive Bayes probability P(Loan = 1 | CC= 1, Online = 1)
+```{r}
+# Loan acceptance
+score_yes <- P_CC_Loan * P_Online_Loan * P_Loan
+# Loan declines
+score_no <- P_CC_NoLoan * P_Online_NoLoan * P_NoLoan
+# P(Loan = 1 | CC= 1, Online = 1)
+P_Loan_CCOnline <- score_yes / (score_yes+score_no)
+P_Loan_CCOnline
+```
+
+### F. Compare this value with the one obtained from the pivot table in (B). Which is a more accurate estimate?
+```{r}
+# Print out both values to make a side by side comparison
+probability
+P_Loan_CCOnline
+```
+Both values are very close to each other, but the first method could be considered more accurate because it does not assume how the variables relate to each other. Plus, it bases the probability exclusively on data that matches the predictors we're considering. It is important to keep in mind that this approach becomes impractical when there are many predictors. For this case, however, it works fine since we're only using two predictors.
+
+### G. Which of the entries in this table are needed for computing P(Loan = 1 | CC = 1, Online = 1)?
+```{r}
+# Run naive Bayes on the data
+library(e1071)
+
+nb_model <- naiveBayes(Personal.Loan ~ CreditCard + Online, data = train)
+nb_model
+
+```
+The entries from this table that are need for computing the probability of loan acceptance when the client holds a credit card from the bank and uses online banking are:
+
+- CreditCard table, row 1, column 1: 0.2916667
+- Online table, row 1, column 1: 0.6111111
+- A-priori, 1: 0.096
+- CreditCard table, row 0, column 1: 0.2865044
+- Online table, row 0, column 1: 0.5940265
+- A-priori, 0: 0.904
+
+```{r}
+# Examine the model output on training data, and find the entry that corresponds to P(Loan = 1 | CC = 1, Online = 1
+predict(nb_model, newdata = data.frame(CreditCard = factor(1, levels = c(0, 1)),
+                                       Online = factor(1, levels = c(0, 1))),
+        type = "raw")
+```
+```{r}
+# Compare this to the number you obtained in (E).
+P_Loan_CCOnline # output from E
+```
+Both with a manual calculation an using the naivesBayes function, the result remains the same.The final probability is about 0.10, so a customer with a bank credit card who uses online banking has roughly a 10% chance of accepting the loan.

@@ -1,0 +1,97 @@
+---
+title: "Assignment 4"
+author: "Ana Sarmiento"
+date: "2026-10-29"
+output: html_document
+---
+
+```{r}
+# install.packages(c("factoextra", "flexclust"))
+library(factoextra)
+library(flexclust) 
+```
+## a.1  Use only the numerical variables (1 to 9) to cluster the 21 firms.
+```{r}
+pharma <- read.csv("Pharmaceuticals.csv")
+str(pharma)                                 
+
+numeric_data <- pharma[, 3:11]              # only columns 3 through 11 because these are the numerical variables
+rownames(numeric_data) <- pharma$Symbol     
+head(numeric_data)                          
+```
+
+## a.2 Justify the various choices made in conducting the cluster analysis,
+```{r}
+scaled_data <- scale(numeric_data)       
+head(scaled_data)                        
+
+round(colMeans(scaled_data), 2)          
+apply(scaled_data, 2, sd)                
+```
+Start the cluster analysis by scaling the variables because k-means groups firms by distance, so variables with large numbers dominate. For example, Market_Cap runs from about 0.4 to 200 while Leverage runs from 0 to about 3.5, so unscaled, Market_Cap alone would decide the clusters.I did not give any variable extra weight because nothing from the stated business context specifies that the analyst is looking for something in particular. The goal is to "understand the structure of the pharmaceutical industry using some basic financial measures,"; all variables have the same weight.
+
+```{r}
+set.seed(123)
+
+fviz_nbclust(scaled_data, kmeans, nstart = 25, method = "wss")          
+fviz_nbclust(scaled_data, kmeans, nstart = 25, method = "silhouette")   
+```
+
+I used the elbow and silhouette methods to determine the best k for number of clusters. Based on both graphics, the best k = 3. According to the elbow method, the best k is between 2 and 3. The silhouette method clearly shows 3 at the highest point. Therefore, I choose 3 for the k, although it's important to mention the silhouette method also shows 3 at a 0.28, which means the clusters will likely only be moderately separated.
+
+## b. Interpret the clusters with respect to the numerical variables used in forming the clusters.
+```{r}
+set.seed(123)                                        
+km <- kmeans(scaled_data, centers = 3, nstart = 25)
+
+print("km$size")
+km$size
+print("km$centers")
+km$centers                                           
+
+fviz_cluster(km, data = scaled_data)                 
+```
+
+I used k-means because all nine variables are numeric and k-means groups firms into a set number (k) of non-overlapping clusters, with k chosen using the elbow and silhouette methods (as done in the previous chunk of code). It measures similarity with Euclidean distance, which works well here because I scaled the variables so none dominates (as done in my third chunk of code). Since k-means starts from random points, I used nstart = 25 to keep the best of 25 runs (which was I saw in the modules slides).”
+
+```{r}
+aggregate(numeric_data, by = list(cluster = km$cluster), FUN = mean)   
+split(pharma$Symbol, km$cluster)                                       
+```
+Cluster 1: The variables that stand out the most are Market_Cap (-0.61) PE_Ratio (1.31) ROE (-0.96) ROA (-1.01) Rev_Growth (-0.57) Net_Profit_Margin (-1.37). I would categorize these as smaller firms with weak profitability and slow growth that investors still price at a premium, mainly because of their p/e ratio which speaks to how much investors expect of them at the time of this analysis;
+Cluster 2: The variables that stand out the most are Market_Cap (0.67) ROE (0.65) ROA (0.83) Net_Profit_Margin (0.68). Because of this I would categorize this cluster as the "leaders" of the industry, because they have a large market cap and above average variables related to profit (e.g., ROE, ROA, net profit margin);
+Cluster 3: The variables that stand out the most are Market_Cap (-0.82) ROE (-0.56) ROA (-0.85) Asset_Turnover (-0.99) Leverage (0.85) Rev_Growth (0.91). I would categorize this cluster as the "emerging companies" in the pharmaceutical industry, because their market cap is currently low, but their expected revenue growth is well above average. Their leverage is also above average, which talks to how much debt these companies are carrying.
+
+## c. Is there a pattern in the clusters with respect to the numerical variables (10 to 12)? (those not used in forming the clusters)
+```{r}
+pharma$cluster <- km$cluster                                  
+print("Median_Recommendation")
+table(pharma$cluster, pharma$Median_Recommendation)           
+print("Location")
+table(pharma$cluster, pharma$Location)                        
+print("Exchange")
+table(pharma$cluster, pharma$Exchange)                        
+```
+For median recommendation, the leaders of the industry (cluster 2) lean toward a hold, while the emerging companies (cluster 3) lean towards a moderate buy. The number presented by smaller firms (cluster 1) don't show a significant tendency towards any of them. Also because they're the smaller cluster, there's no enough data to see a pattern here.
+
+For location, most firms that are leaders (cluster 2) and emerging companies (cluster 3) are located in the US. For smalles companies (cluster 1), they're all distributed in different countries.
+
+For exchange, all leaders (cluster 2) and small companies (cluster 1) are in the NYSE. For emerging companies (cluster 3) two of them are located in others like AMEX and NASDAQ, but most of them also are in the NYSE.
+
+In conclusion, there are no strong patterns with respect to the median recommendation, location or exchange because with only 21 firms, most of them from US and in the NYSE, these variables don’t clearly separate the clusters.
+
+## d. Provide an appropriate name for each cluster using any or all of the variables in the dataset.
+| Cluster | Name | Why this name (1 sentence) |
+|---------|------|----------------------------|
+| 1 | Small Weak Profit Companies | high p/e ratio but low margin and growth |
+| 2 | Industry Leaders | large market cap and above average variables related to profit |
+| 3 | Emerging Companies | low market cap, but expected revenue growth well above average and above-average leverage |
+
+## Conclusion
+Through this cluster analysis, he equities analyst now has an understanding of how the pharmaceutical industry is structured, based on basic financial measures. She now knows that, within this industry, she can divide the firms into three groups (clusters) that are moderately separate:
+
+- Industry Leaders (11 firms)
+
+- Emerging Companies (6 firms)
+
+- Small Weak Profit Companies (4 firms)
